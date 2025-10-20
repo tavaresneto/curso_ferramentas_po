@@ -1,23 +1,60 @@
-use rand::distr::weighted;
+//! Implementação de exemplo de um ACO extremamente simples para resolver o problema de escalonamento de tarefas
+//! em máquina única com o objetivo de minimizar o atraso total ponderado.
+//! O código inclui a definição do problema, a configuração do ACO, a representação das formigas,
+//! a função de avaliação e o loop principal do algoritmo.
+//! O código é estruturado para facilitar a compreensão dos conceitos básicos do ACO aplicado a esse problema específico.
+//! 
+//! Não tem como objetivo ser uma implementação otimizada ou completa do ACO, mas sim um ponto de partida para estudos e experimentações.
+
 use rand::Rng; 
 use clap::Parser;
 use std::fs::File;
-use std::io::{self, BufReader, BufRead};
+use std::io::{BufReader, BufRead};
 use std::path::Path;
 
+/// Representa uma instância do problema de sequenciamento de tarefas
 #[derive(Debug)]
 struct Problem {
+    /// Número de tarefas
     n: usize,
+    /// Tempo de processamento de cada tarefa
     processing_time: Vec<f64>,
+    /// Peso de cada tarefa
     weight: Vec<f64>,
+    /// Data de vencimento de cada tarefa
     due_date: Vec<f64>,
 }
 
 impl Problem {
+    /// Construtor para criar uma nova instância do problema
+    /// com os parâmetros fornecidos
+    /// Retorna uma nova instância do problema
+    /// # Arguments
+    /// * `n` - Número de tarefas
+    /// * `processing_time` - Vetor com o tempo de processamento de cada tarefa
+    /// * `weight` - Vetor com o peso de cada tarefa
+    /// * `due_date` - Vetor com a data de vencimento de cada tarefa
+    /// # Returns
+    /// * `Self` - Nova instância do problema
     fn new(n: usize, processing_time: Vec<f64>, weight: Vec<f64>, due_date: Vec<f64>) -> Self {
         Self { n, processing_time, weight, due_date }
     }
 
+
+    /// Função para obter um problema de brinquedo (toy problem)
+    /// Retorna uma nova instância do problema de brinquedo
+    /// # Returns
+    /// * `Self` - Nova instância do problema de brinquedo
+    /// Dados:
+    /// | Tarefa | Tempo de Processamento | Peso | Data de Vencimento |
+    /// |--------|-------------------------|------|--------------------|
+    /// | 0      | 0.0                     | 0.0  | 0.0                |
+    /// | 1      | 2.0                     | 3.0  | 5.0                |
+    /// | 2      | 4.0                     | 1.0  | 3.0                |
+    /// | 3      | 3.0                     | 4.0  | 6.0                |
+    /// | 4      | 5.0                     | 2.0  | 4.0                |
+    /// | 5      | 1.0                     | 5.0  | 7.0                |
+    #[allow(dead_code)]
     fn get_toy_problem() -> Self {
         let n = 6;
         let processing_time = vec![0.0, 2.0, 4.0, 3.0, 5.0, 1.0];
@@ -26,6 +63,11 @@ impl Problem {
         Self::new(n, processing_time, weight, due_date)
     }
 
+    /// Função para carregar uma instância do problema a partir de um arquivo
+    /// # Arguments
+    /// * `filename` - Nome do arquivo contendo a instância do problema
+    /// # Returns
+    /// * `Self` - Nova instância do problema carregada do arquivo
     fn load_from_file(filename: &str) -> Self {
         let file = File::open(Path::new(filename)).expect(format!("Não foi poss[ivel abrir o arquivo: {}", filename).as_str());
         let reader = BufReader::new(file);
@@ -62,16 +104,37 @@ impl Problem {
     }
 }
 
+
+/// Representa a configuração do algoritmo ACO
+/// com os parâmetros necessários para sua execução
 struct ACOConfig {
+    /// Número de formigas
     n_ants: usize,
+    /// Número de iterações
     n_iterations: usize,
+    /// Peso da influência do feromônio
     alpha: f64,
+    /// Peso da influência da visibilidade
     beta: f64,
+    /// Taxa de evaporação do feromônio
     evaporation_rate: f64,
+    /// Quantidade de feromônio a ser adicionada
     pheromone_add: f64,
 }
 
 impl ACOConfig {
+    /// Construtor para criar uma nova configuração do ACO
+    /// com os parâmetros fornecidos
+    /// Retorna uma nova configuração do ACO
+    /// # Arguments
+    /// * `n_ants` - Número de formigas
+    /// * `n_iterations` - Número de iterações
+    /// * `alpha` - Peso da influência do feromônio
+    /// * `beta` - Peso da influência da visibilidade
+    /// * `evaporation_rate` - Taxa de evaporação do feromônio
+    /// * `pheromone_add` - Quantidade de feromônio a ser adicionada
+    /// # Returns
+    /// * `Self` - Nova configuração do ACO
     fn new(
         n_ants: usize,
         n_iterations: usize,
@@ -91,6 +154,15 @@ impl ACOConfig {
     }
 }
 
+/// Representa uma formiga no algoritmo ACO
+/// com os atributos necessários para sua operação
+/// e tomada de decisões
+/// # Parameters
+/// * `aco_config` - Referência à configuração do ACO
+/// * `problem` - Referência à instância do problema
+/// * `tabu_list` - Lista tabu para rastrear tarefas já visitadas
+/// * `curr_pos` - Posição atual da formiga
+/// * `tour` - Sequência de tarefas visitadas pela formiga
 struct Ant<'a> {
     aco_config: &'a ACOConfig,
     problem: &'a Problem,
@@ -100,6 +172,15 @@ struct Ant<'a> {
 }
 
 impl<'a> Ant<'a> {
+    /// Construtor para criar uma nova formiga
+    /// com os parâmetros fornecidos
+    /// Retorna uma nova formiga
+    /// # Arguments
+    /// * `aco_config` - Referência à configuração do ACO
+    /// * `problem` - Referência à instância do problema
+    /// * `start_pos` - Posição inicial da formiga
+    /// # Returns
+    /// * `Self` - Nova formiga posicionada na tarefa inicial
     fn init(aco_config: &'a ACOConfig, problem: &'a Problem, start_pos: usize) -> Self {
         let mut tabu_list = vec![false; problem.n];
         tabu_list[start_pos] = true;
@@ -111,11 +192,26 @@ impl<'a> Ant<'a> {
             tour: vec![start_pos],
         }
     }
+
+    /// Move a formiga para a próxima posição
+    /// * Atualiza a posição atual da formiga
+    /// * Marca a posição como visitada na lista tabu
+    /// * Adiciona a posição ao tour da formiga
+    /// 
+    /// # Arguments
+    /// * `next_pos` - Próxima posição para a qual a formiga deve se mover  
     fn move_to(&mut self, next_pos: usize) {
         self.curr_pos = next_pos;
         self.tabu_list[next_pos] = true;
         self.tour.push(next_pos);
     }
+
+    /// Escolhe a próxima posição para a formiga se mover
+    /// com base na matriz de feromônio e nas regras do ACO
+    /// # Arguments
+    /// * `pheromone_matrix` - Matriz de feromônio utilizada para a decisão
+    /// # Returns
+    /// * `Option<usize>` - Próxima posição escolhida ou None se não houver
     fn choose_next_position(&self, pheromone_matrix: &mut Vec<Vec<f64>>) -> Option<usize> {
         let mut possib:Vec<f64> = Vec::with_capacity(self.problem.n);
         let mut sum = 0.0;
@@ -145,6 +241,10 @@ impl<'a> Ant<'a> {
     }
 }
 
+/// Atualiza a matriz de feromônio com base nas soluções encontradas pelas formigas
+/// # Arguments
+/// * `pheromone_matrix` - Matriz de feromônio a ser atualizada
+/// * `ants` - Vetor de formigas que contribuíram para a atualização
 fn update_pheromone_matrix(pheromone_matrix: &mut Vec<Vec<f64>>, ants: &Vec<Ant>) {
     for i in 0..pheromone_matrix.len() {
         for j in 0..pheromone_matrix.len() {
@@ -162,6 +262,12 @@ fn update_pheromone_matrix(pheromone_matrix: &mut Vec<Vec<f64>>, ants: &Vec<Ant>
     }
 }
 
+/// Função principal do algoritmo ACO
+/// # Arguments
+/// * `problem` - Referência à instância do problema
+/// * `config` - Referência à configuração do ACO
+/// # Returns
+/// * `(f64, Vec<usize>)` - Melhor fitness encontrado e o tour correspondente
 fn aco_main(problem: &Problem, config: &ACOConfig) -> (f64, Vec<usize>){
     let mut ants:Vec<Ant> = Vec::with_capacity(config.n_ants);
     let mut pheromone_matrix = vec![vec![1.0; problem.n]; problem.n];
@@ -197,6 +303,12 @@ fn aco_main(problem: &Problem, config: &ACOConfig) -> (f64, Vec<usize>){
     (best_fitness, best_tour)
 }
 
+/// Calcula o fitness de um tour dado uma instância do problema
+/// # Arguments
+/// * `problem` - Referência à instância do problema
+/// * `tour` - Vetor representando o tour a ser avaliado
+/// # Returns
+/// * `f64` - Valor do fitness (atraso total ponderado) calculado para o tour
 fn get_fitness(problem: &Problem, tour: &Vec<usize>) -> f64 {
     let mut time = 0.0;
     let mut total_tardiness = 0.0;
@@ -210,6 +322,7 @@ fn get_fitness(problem: &Problem, tour: &Vec<usize>) -> f64 {
     total_tardiness
 }
 
+/// Estrutura para parsear os argumentos da linha de comando
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
