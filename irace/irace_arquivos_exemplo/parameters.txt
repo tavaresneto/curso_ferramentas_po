@@ -1,0 +1,6 @@
+# name		    switch		     type	values			                    [conditions (using R syntax)]
+nants	        "--n-ants "      c		("1", "5", "10", "20")
+niter		    "--n-iter "      c  	("10", "50", "100", "250", "500")
+beta            "--beta "        r  	(0.00, 10.00)
+evap            "--evap  "       r  	(0.01, 0.99)
+add		        "--add "	     i	    (1, 10)
