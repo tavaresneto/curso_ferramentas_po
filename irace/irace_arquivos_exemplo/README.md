@@ -6,8 +6,8 @@ Arquivos relevantes:
 
 | Arquivo           | Descrição                                                |
 |-------------------|----------------------------------------------------------|
-| aco               | binário a ser parametriuzado (linux)                     |
-| aco.exe           | binário a ser parametrizado (windows)                    |
+| execdir/aco       | binário a ser parametriuzado (linux)                     |
+| execdir/aco.exe   | binário a ser parametrizado (windows)                    |
 | parameters.txt    | parâmetros a serem trabalhados pelo IRACE                |
 | scenario.txt      | descrição do cenário de parametrização                   |
 | target-runner     | script de suporte para o IRACE                           |

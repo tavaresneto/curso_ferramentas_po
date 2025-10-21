@@ -1,1 +1,3 @@
-execdir/*
+execdir/*.Rdata
+execdir/*.stderr
+execdir/*.stdout
